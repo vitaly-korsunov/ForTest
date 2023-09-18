@@ -1,0 +1,157 @@
+Microsoft.EntityFrameworkCore
+Microsoft.EntityFrameworkCore.SqlServer
+Microsoft.EntityFrameworkCore.Tools
+Microsoft.VisualStudio.Web.CodeGeneration.Design  6.0.16
+Swashbuckle.AspNetCore
+
+----------------------------------------------------------------------------------------
+Program.cs
+var allowSpecificOrigins = "_allowSpecificOrigins";
+
+ builder.Services.AddDbContext<DataContext>(options =>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+});
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: allowSpecificOrigins,
+        builder =>
+        {
+            builder.WithOrigins("http://localHost:4200")
+            .AllowAnyMethod() 
+            .AllowAnyHeader();
+        });
+});
+//var app = builder.Build();   before
+
+app.UseCors(allowSpecificOrigins);
+
+----------------------------------------------------------------------------------------
+in File Studentcs
+ public class Student
+ {
+         public int Id { get; set; }
+         public string? name { get; set; }
+         public string? department { get; set; }
+         public string? bdate { get; set; }
+         public string? gender { get; set; }
+         public int level { get; set; }
+
+ }
+ ----------------------------------------------------------------------------------------
+in File Department.cs
+namespace ServerEF.Moduls
+{
+    public class Department
+    {
+        public int Id { get; set; }
+        public string? department { get; set; }
+    }
+}
+----------------------------------------------------------------------------------------
+Folder Data file DataContext.cs
+   pupublic class DataContext:DbContext
+{
+    public DataContext(DbContextOptions<DataContext> options) : base(options) { }
+    public DbSet<Student> Student { get; set; }
+    public DbSet<Department> Department { get; set; }
+}
+----------------------------------------------------------------------------------------
+appsettings.json
+    "ConnectionStrings": {
+    "DefaultConnection": "server=LAPTOP-I7OKMQKR;database=StudentEF;Trusted_Connection=True;MultipleActiveResultSets=true;User ID=sa;Password=1!Korsunov;Integrated Security=True;TrustServerCertificate=True"
+	}
+----------------------------------------------------------------------------------------
+in file StudentsController
+private readonly DataContext _context;
+
+public StudentsController(DataContext context)
+{
+    _context = context;
+}
+
+
+[HttpGet]
+public async Task<ActionResult<IEnumerable<Student>>> GetStudents()
+{
+    return await _context.Student.ToListAsync();
+}
+
+
+ [HttpGet("{id}")]
+ public async Task<ActionResult<Student>> GetInvoice(int id)
+ {
+     var student = await _context.Student.FindAsync(id);
+
+     if (student == null)
+     {
+         return NotFound();
+     }
+
+     return student;
+ }
+ 
+ 
+   [HttpPut("{id}")]
+  public async Task<ActionResult<Student>> Put(int id, Student student)
+  {
+      //    Invoice InvoiceClass = JsonConvert.DeserializeObject<Invoice>(invoice.ToString());
+
+      if (id != student.Id)
+      {
+          return BadRequest();
+      }
+
+      _context.Entry(student).State = EntityState.Modified;
+
+      try
+      {
+          await _context.SaveChangesAsync();
+      }
+      catch (DbUpdateConcurrencyException)
+      {
+          throw;
+      }
+      return CreatedAtAction("GetStudent", new { id = student.Id }, student);
+      //   return NoContent();
+  }
+  
+   [HttpPost]
+ public async Task<ActionResult<Student>> PostInvoice(Student student)
+ {
+     //   Invoice InvoiceClass = JsonConvert.DeserializeObject<Invoice>(invoice.ToString());
+     _context.Student.Add(student);
+     await _context.SaveChangesAsync();
+
+     return CreatedAtAction("GetStudent", new { id = student.Id }, student);
+ }
+ [HttpDelete("{id}")]
+ public async Task<IActionResult> DeleteStudent(int id)
+ {
+     var student = await _context.Student.FindAsync(id);
+     if (student == null)
+     {
+         return NotFound();
+     }
+
+     _context.Student.Remove(student);
+     await _context.SaveChangesAsync();
+
+     return NoContent();
+ }
+----------------------------------------------------------------------------------------
+in File DepartmentsController.cs
+ public DepartmentsController(DataContext context)
+ {
+     _context = context;
+ }
+ [HttpGet]
+ public async Task<ActionResult<IEnumerable<Department>>> GetStatuses()
+ {
+     return await _context.Department.ToListAsync();
+ }
+----------------------------------------------------------------------------------------
+cd .\serverEF
+dotnet tool install --global dotnet-ef --version 6.*
+dotnet ef migrations add InitialCreate
+dotnet ef database update
